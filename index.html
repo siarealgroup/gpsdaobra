@@ -18,32 +18,67 @@
 
 <div id="toast" class="toast"></div>
 
-<div class="app-wrapper">
+<!-- ─── TELA DE LOGIN ──────────────────────── -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-title">📍 GPS da Obra</div>
+      <div class="auth-logo-sub">Gestão de obras e empreendimentos</div>
+    </div>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="email" id="auth-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="auth-senha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+    </div>
+    <button id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <div id="auth-erro"></div>
+  </div>
+</div>
+
+<!-- ─── APP PRINCIPAL ─────────────────────── -->
+<div id="app-wrapper" style="display:none">
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">
       <div class="logo-title">📍 GPS da Obra</div>
-      <div class="logo-sub">gpsdaobra.eng.br</div>
+      <div id="empresa-nome-header" class="logo-empresa"></div>
     </div>
+
     <nav class="sidebar-nav">
-      <button class="nav-btn active" data-tela="painel" onclick="navegar('painel')">
+      <div class="nav-section">Visão geral</div>
+      <button id="nav-painel" class="nav-btn active" data-tela="painel" onclick="navegar('painel')">
         <i class="ti ti-layout-dashboard"></i> Painel geral
       </button>
-      <button class="nav-btn" data-tela="obras" onclick="navegar('obras')">
+      <button id="nav-obras" class="nav-btn" data-tela="obras" onclick="navegar('obras')">
         <i class="ti ti-building"></i> Obras
       </button>
-      <button class="nav-btn" data-tela="cadastro" onclick="navegar('cadastro')">
+
+      <div class="nav-section">Operações</div>
+      <button id="nav-cadastro" class="nav-btn" data-tela="cadastro" onclick="navegar('cadastro')">
         <i class="ti ti-plus"></i> Nova obra
       </button>
-      <button class="nav-btn" data-tela="avanco" onclick="navegar('avanco')">
+      <button id="nav-avanco" class="nav-btn" data-tela="avanco" onclick="navegar('avanco')">
         <i class="ti ti-chart-bar"></i> Lançar avanço
       </button>
-      <button class="nav-btn" data-tela="segqual" onclick="navegar('segqual')">
+      <button id="nav-segqual" class="nav-btn" data-tela="segqual" onclick="navegar('segqual')">
         <i class="ti ti-shield-check"></i> Qualidade & Seg.
       </button>
+
+      <div class="nav-section">Administração</div>
+      <button id="nav-usuarios" class="nav-btn" data-tela="usuarios" onclick="navegar('usuarios')">
+        <i class="ti ti-users"></i> Usuários
+      </button>
+      <button id="nav-empresas" class="nav-btn" data-tela="empresas" onclick="navegar('empresas')">
+        <i class="ti ti-briefcase"></i> Empresas
+      </button>
     </nav>
-    <div class="sidebar-footer">v1.0 · GPS da Obra</div>
+
+    <div id="sidebar-usuario" class="sidebar-user"></div>
+    <div class="sidebar-footer">v2.0 · GPS da Obra</div>
   </aside>
 
   <!-- CONTEÚDO PRINCIPAL -->
@@ -54,23 +89,30 @@
       <div class="page-header">
         <div>
           <div class="page-title">Painel geral</div>
-          <div class="page-sub">Resumo de todas as obras do portfólio</div>
+          <div class="page-sub">Resumo de todos os empreendimentos</div>
         </div>
-        <button class="btn-primary" onclick="navegar('cadastro')"><i class="ti ti-plus"></i> Nova obra</button>
+        <button id="hdr-btn-nova-obra" class="btn-primary" onclick="navegar('cadastro')">
+          <i class="ti ti-plus"></i> Nova obra
+        </button>
       </div>
       <div id="painel-content"></div>
     </div>
 
-    <!-- LISTA DE OBRAS -->
+    <!-- OBRAS -->
     <div id="screen-obras" class="screen">
       <div class="page-header">
         <div>
           <div class="page-title">Obras</div>
-          <div class="page-sub">Gerencie seus empreendimentos</div>
+          <div class="page-sub">Todos os empreendimentos</div>
         </div>
         <button class="btn-primary" onclick="navegar('cadastro')"><i class="ti ti-plus"></i> Nova obra</button>
       </div>
       <div id="obras-lista"></div>
+    </div>
+
+    <!-- DETALHE DA OBRA (drill-down) -->
+    <div id="screen-detalhe" class="screen">
+      <div id="detalhe-content"></div>
     </div>
 
     <!-- CADASTRO -->
@@ -106,7 +148,18 @@
             </select>
           </div>
         </div>
-        <div class="field"><label>Descrição / observações</label><textarea id="f-desc" placeholder="Informações adicionais sobre o empreendimento..."></textarea></div>
+        <div class="field-group">
+          <div class="field"><label>Status</label>
+            <select id="f-status">
+              <option value="execucao">Em execução</option>
+              <option value="planejamento">Planejamento</option>
+              <option value="paralisada">Paralisada</option>
+              <option value="concluida">Concluída</option>
+            </select>
+          </div>
+          <div class="field"></div>
+        </div>
+        <div class="field"><label>Descrição / observações</label><textarea id="f-desc" placeholder="Informações adicionais..."></textarea></div>
       </div>
 
       <div class="card">
@@ -168,10 +221,9 @@
       <div class="page-header">
         <div>
           <div class="page-title">Qualidade & Segurança</div>
-          <div class="page-sub">Lance os indicadores mensais de qualidade e segurança do canteiro</div>
+          <div class="page-sub">Lance os indicadores mensais do canteiro</div>
         </div>
       </div>
-
       <div class="card">
         <div class="sec-title"><i class="ti ti-settings"></i>Obra e período</div>
         <div class="field-group">
@@ -181,7 +233,6 @@
           <div class="field"><label>Período de referência</label><input type="month" id="sq-periodo"></div>
         </div>
       </div>
-
       <div class="card">
         <div class="sec-title"><i class="ti ti-star"></i>Qualidade dos serviços (notas de 0 a 5)</div>
         <div class="field-group">
@@ -199,7 +250,6 @@
           </div>
         </div>
       </div>
-
       <div class="card">
         <div class="sec-title"><i class="ti ti-helmet"></i>Segurança no canteiro</div>
         <div class="field-group-3">
@@ -213,11 +263,20 @@
         </div>
         <div class="field"><label>Observações / ocorrências</label><textarea id="s-obs" placeholder="Descreva ocorrências, ações corretivas, pontos de atenção..."></textarea></div>
       </div>
-
       <div class="btn-row">
         <button onclick="navegar('painel')">Cancelar</button>
         <button class="btn-primary" onclick="salvarSegQual()"><i class="ti ti-check"></i> Salvar lançamento</button>
       </div>
+    </div>
+
+    <!-- USUÁRIOS -->
+    <div id="screen-usuarios" class="screen">
+      <div id="usuarios-content"></div>
+    </div>
+
+    <!-- EMPRESAS (master) -->
+    <div id="screen-empresas" class="screen">
+      <div id="empresas-content"></div>
     </div>
 
   </main>
@@ -225,7 +284,6 @@
 
 <!-- Supabase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<!-- Config e App -->
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 
