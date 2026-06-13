@@ -830,10 +830,14 @@ async function criarUsuario() {
   if (senha.length < 6) { errEl.textContent = 'Senha deve ter pelo menos 6 caracteres.'; return; }
   loading(true);
   try {
-    const { data: authData, error: authErr } = await db.auth.admin.createUser({
-      email, password: senha, email_confirm: true
+    // Criar usuário via signUp (funciona no frontend)
+    const { data: authData, error: authErr } = await db.auth.signUp({
+      email, password: senha,
+      options: { data: { nome } }
     });
     if (authErr) throw authErr;
+    if (!authData.user) throw new Error('Erro ao criar usuário. Tente outro e-mail.');
+
     const { error: perfErr } = await db.from('perfis').insert({
       user_id:    authData.user.id,
       empresa_id: window._sessao.empresa_id,
@@ -843,7 +847,7 @@ async function criarUsuario() {
       ativo: true,
     });
     if (perfErr) throw perfErr;
-    toast(`Usuário "${nome}" criado!`);
+    toast(`Usuário "${nome}" criado! Ele receberá um e-mail de confirmação.`);
     fecharModalUsuario();
     await renderUsuarios();
   } catch(e) {
@@ -965,26 +969,30 @@ async function salvarEmpresa() {
   const empId = document.getElementById('emp-id').value;
   const dados = {
     nome,
-    cnpj:     document.getElementById('emp-cnpj').value.trim(),
+    cnpj:     document.getElementById('emp-cnpj').value.trim() || null,
     tipo:     document.getElementById('emp-tipo').value,
-    email:    document.getElementById('emp-email').value.trim(),
-    cidade:   document.getElementById('emp-cidade').value.trim(),
-    uf:       document.getElementById('emp-uf').value.trim().toUpperCase(),
-    endereco: document.getElementById('emp-endereco').value.trim(),
+    email:    document.getElementById('emp-email').value.trim() || null,
+    cidade:   document.getElementById('emp-cidade').value.trim() || null,
+    uf:       document.getElementById('emp-uf').value.trim().toUpperCase() || null,
+    endereco: document.getElementById('emp-endereco').value.trim() || null,
+    ativa:    true,
   };
   loading(true);
   try {
     if (empId) {
-      await db.from('empresas').update(dados).eq('id', empId);
+      const { error } = await db.from('empresas').update(dados).eq('id', empId);
+      if (error) throw error;
       toast('Empresa atualizada!');
     } else {
-      await db.from('empresas').insert(dados);
+      const { data, error } = await db.from('empresas').insert(dados).select().single();
+      if (error) throw error;
       toast('Empresa criada!');
     }
     fecharModalEmpresa();
     await renderEmpresas();
   } catch(e) {
-    errEl.textContent = e.message;
+    errEl.textContent = 'Erro: ' + e.message;
+    console.error('Erro ao salvar empresa:', e);
   }
   loading(false);
 }
