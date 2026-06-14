@@ -55,7 +55,18 @@ body { font-family: var(--font); background: var(--color-bg); color: var(--color
 }
 #btn-login:hover { opacity: 0.88; }
 #btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
-#auth-erro { font-size: 12px; color: var(--color-red); margin-top: 8px; text-align: center; }
+#auth-erro, #rec-erro { font-size: 12px; color: var(--color-red); margin-top: 8px; text-align: center; }
+#recovery-screen {
+  display: none; align-items: center; justify-content: center;
+  min-height: 100vh; background: var(--color-bg);
+}
+#btn-rec {
+  width: 100%; padding: 10px; background: var(--color-primary); color: #fff;
+  border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500;
+  cursor: pointer; margin-top: 4px; transition: opacity 0.15s;
+}
+#btn-rec:hover { opacity: 0.88; }
+#btn-rec:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ─── LAYOUT ─────────────────────────────────── */
 #app-wrapper { display: flex; min-height: 100vh; }

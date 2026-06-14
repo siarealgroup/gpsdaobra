@@ -58,11 +58,18 @@ function podeExcluirEmpresa() {
 // ─── AUTH: TELA DE LOGIN ─────────────────────
 function mostrarLogin() {
   document.getElementById('app-wrapper').style.display = 'none';
+  document.getElementById('recovery-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
 }
 function mostrarApp() {
   document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('recovery-screen').style.display = 'none';
   document.getElementById('app-wrapper').style.display = 'flex';
+}
+function mostrarRecuperacao() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-wrapper').style.display = 'none';
+  document.getElementById('recovery-screen').style.display = 'flex';
 }
 
 async function fazerLogin() {
@@ -80,6 +87,52 @@ async function fazerLogin() {
   if (error) { err.textContent = 'E-mail ou senha inválidos.'; }
 }
 
+// Solicitar e-mail de redefinição de senha (tela de login)
+async function solicitarResetSenha() {
+  const emailField = document.getElementById('auth-email');
+  const errEl = document.getElementById('auth-erro');
+  errEl.style.color = 'var(--color-red)';
+  let email = emailField.value.trim();
+  if (!email) {
+    email = prompt('Digite o e-mail cadastrado para receber o link de redefinição:');
+    if (!email) return;
+  }
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  if (error) {
+    errEl.style.color = 'var(--color-red)';
+    errEl.textContent = 'Erro: ' + error.message;
+  } else {
+    errEl.style.color = 'var(--color-green-text)';
+    errEl.textContent = 'Se este e-mail estiver cadastrado, um link de redefinição foi enviado.';
+  }
+}
+
+// Salvar nova senha (após clicar no link de recuperação do e-mail)
+async function salvarNovaSenha() {
+  const senha  = document.getElementById('rec-senha').value;
+  const senha2 = document.getElementById('rec-senha2').value;
+  const btn    = document.getElementById('btn-rec');
+  const errEl  = document.getElementById('rec-erro');
+  errEl.style.color = 'var(--color-red)';
+  errEl.textContent = '';
+  if (!senha || senha.length < 6) { errEl.textContent = 'A senha deve ter pelo menos 6 caracteres.'; return; }
+  if (senha !== senha2) { errEl.textContent = 'As senhas não coincidem.'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+  const { error } = await db.auth.updateUser({ password: senha });
+  btn.disabled = false;
+  btn.textContent = 'Salvar nova senha';
+  if (error) {
+    errEl.textContent = 'Erro: ' + error.message;
+  } else {
+    errEl.style.color = 'var(--color-green-text)';
+    errEl.textContent = 'Senha atualizada! Redirecionando...';
+    setTimeout(() => { window.location.href = window.location.origin; }, 1500);
+  }
+}
+
 async function fazerLogout() {
   await db.auth.signOut();
   window._sessao = null;
@@ -88,6 +141,10 @@ async function fazerLogout() {
 
 // ─── INICIALIZAÇÃO AUTH ───────────────────────
 db.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    mostrarRecuperacao();
+    return;
+  }
   if (session?.user) {
     await carregarSessao(session.user);
   } else {
@@ -1116,6 +1173,11 @@ function renderTabelaUsuarios(usuarios, podeCriar, hojeMes, hojeDia) {
           <td style="font-size:12px">${tempo}</td>
           <td><span class="badge ${u.ativo ? 'badge-green' : 'badge-red'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
           <td>
+            ${podeCriar
+              ? `<button class="btn-icon" onclick="resetarSenhaUsuario('${u.email}','${u.nome.replace(/'/g, "\\'")}')" title="Enviar e-mail de redefinição de senha">
+                  <i class="ti ti-key"></i>
+                </button>`
+              : ''}
             ${podeCriar && u.user_id !== window._sessao?.user_id
               ? `<button class="btn-icon btn-icon-red" onclick="desativarUsuario('${u.id}','${u.nome}','${u.ativo}')" title="${u.ativo ? 'Desativar' : 'Ativar'}">
                   <i class="ti ti-${u.ativo ? 'user-x' : 'user-check'}"></i>
@@ -1213,6 +1275,22 @@ async function desativarUsuario(id, nome, ativo) {
   await db.from('perfis').update({ ativo: novoAtivo }).eq('id', id);
   toast(`Usuário ${novoAtivo ? 'reativado' : 'desativado'}.`);
   await renderUsuarios();
+}
+
+// Enviar e-mail de redefinição de senha para um usuário (ação do admin)
+async function resetarSenhaUsuario(email, nome) {
+  if (!confirm(`Enviar e-mail de redefinição de senha para "${nome}" (${email})?`)) return;
+  loading(true);
+  try {
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    if (error) throw error;
+    toast(`E-mail de redefinição enviado para ${email}.`);
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  loading(false);
 }
 
 // ─── GESTÃO DE EMPRESAS (Master / Gestora) ───
