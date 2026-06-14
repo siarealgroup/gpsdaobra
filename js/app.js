@@ -46,6 +46,15 @@ function perfil() { return window._sessao?.perfil; }
 function pode(acao) { return podefazer(acao); }
 function souGestora() { return perfil() === 'master_sistema' || empresa?.gestora === true; }
 
+// Excluir empresa: apenas Master do Sistema, ou Gerente de Engenharia da empresa gestora (SIA Real Tec)
+function podeExcluirEmpresa() {
+  const s = window._sessao;
+  if (!s) return false;
+  if (s.perfil === 'master_sistema') return true;
+  if (s.perfil === 'gerente' && s.area === 'engenharia' && empresa?.gestora === true) return true;
+  return false;
+}
+
 // ─── AUTH: TELA DE LOGIN ─────────────────────
 function mostrarLogin() {
   document.getElementById('app-wrapper').style.display = 'none';
@@ -938,6 +947,12 @@ async function renderUsuarios() {
   let query = db.from('perfis').select('*, empresas(nome,gestora)').order('nome');
   if (!souGestora()) query = query.eq('empresa_id', window._sessao.empresa_id);
   const { data: usuarios } = await query;
+
+  // Buscar lista de empresas ANTES de renderizar (necessário para o select do convite)
+  if (souGestora()) {
+    const { data: emps } = await db.from('empresas').select('id,nome,gestora').eq('ativa', true).order('nome');
+    window._todasEmpresasForm = emps || [];
+  }
   loading(false);
   const podeCriar = pode('gerenciarUsuarios');
   const hojeMes = new Date().getMonth();
@@ -1021,11 +1036,6 @@ async function renderUsuarios() {
         <div id="inv-erro" style="color:var(--color-red);font-size:12px;margin-top:8px"></div>
       </div>
     </div>`;
-
-  if (souGestora() && !window._todasEmpresasForm) {
-    const { data: emps } = await db.from('empresas').select('id,nome,gestora').eq('ativa', true).order('nome');
-    window._todasEmpresasForm = emps || [];
-  }
 }
 
 // Tabela de usuários (reutilizável para agrupamento por empresa)
@@ -1199,6 +1209,9 @@ async function renderEmpresas() {
             <td><span class="badge ${e.ativa ? 'badge-green' : 'badge-red'}">${e.ativa ? 'Ativa' : 'Inativa'}</span></td>
             <td>
               <button class="btn-icon" onclick="editarEmpresaModal('${e.id}')" title="Editar"><i class="ti ti-edit"></i></button>
+              ${podeExcluirEmpresa() && !e.gestora
+                ? `<button class="btn-icon btn-icon-red" onclick="excluirEmpresa('${e.id}','${e.nome.replace(/'/g, "\\'")}')" title="Excluir"><i class="ti ti-trash"></i></button>`
+                : ''}
             </td>
           </tr>`;
           }).join('')}
@@ -1266,6 +1279,26 @@ function abrirModalEmpresa() {
 }
 function fecharModalEmpresa() {
   document.getElementById('modal-empresa').style.display = 'none';
+}
+async function excluirEmpresa(id, nome) {
+  if (!podeExcluirEmpresa()) return;
+  const confirmacao = prompt(
+    `Atenção: excluir "${nome}" também excluirá TODAS as obras, EAP, lançamentos e dados vinculados a essa empresa.\n\nOs usuários vinculados a ela perderão o acesso (ficarão sem empresa).\n\nEsta ação NÃO pode ser desfeita.\n\nPara confirmar, digite EXCLUIR:`
+  );
+  if (confirmacao !== 'EXCLUIR') {
+    if (confirmacao !== null) toast('Exclusão cancelada — texto de confirmação não corresponde.', 'error');
+    return;
+  }
+  loading(true);
+  try {
+    const { error } = await db.from('empresas').delete().eq('id', id);
+    if (error) throw error;
+    toast(`Empresa "${nome}" excluída.`);
+    await renderEmpresas();
+  } catch (e) {
+    toast('Erro ao excluir: ' + e.message, 'error');
+  }
+  loading(false);
 }
 async function editarEmpresaModal(id) {
   const { data: e } = await db.from('empresas').select('*').eq('id', id).single();
