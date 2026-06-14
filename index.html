@@ -67,6 +67,9 @@
       <button id="nav-segqual" class="nav-btn" data-tela="segqual" onclick="navegar('segqual')">
         <i class="ti ti-shield-check"></i> Qualidade & Seg.
       </button>
+      <button id="nav-lancamentos" class="nav-btn" data-tela="lancamentos" onclick="navegar('lancamentos')">
+        <i class="ti ti-chart-line"></i> Indicadores
+      </button>
 
       <div class="nav-section">Administração</div>
       <button id="nav-usuarios" class="nav-btn" data-tela="usuarios" onclick="navegar('usuarios')">
@@ -269,10 +272,33 @@
       </div>
     </div>
 
+    <!-- INDICADORES DE DESEMPENHO -->
+    <div id="screen-lancamentos" class="screen">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Indicadores de Desempenho</div>
+          <div class="page-sub">Avanço físico, custo financeiro, qualidade e segurança — realizado vs. previsto, mês a mês</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="field-group">
+          <div class="field"><label>Obra</label>
+            <select id="lc-obra-sel" onchange="carregarLancamentos()"><option value="">Selecionar obra...</option></select>
+          </div>
+          <div class="field"><label>Período de referência</label>
+            <input type="month" id="lc-periodo" onchange="carregarLancamentos()">
+          </div>
+        </div>
+      </div>
+      <div class="tabs" id="lc-tabs"></div>
+      <div id="lc-content"></div>
+    </div>
+
     <!-- USUÁRIOS -->
     <div id="screen-usuarios" class="screen">
       <div id="usuarios-content"></div>
     </div>
+
 
     <!-- EMPRESAS (master) -->
     <div id="screen-empresas" class="screen">

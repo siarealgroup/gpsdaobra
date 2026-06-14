@@ -185,6 +185,18 @@ button:hover { background: var(--color-bg2); }
 
 .total-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 0; border-top: 0.5px solid var(--color-border2); margin-top: 4px; }
 
+/* ─── TABS ───────────────────────────────────── */
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.tab-btn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+  border: 0.5px solid var(--color-border); background: var(--color-surface);
+  color: var(--color-text2); font-size: 13px; font-family: var(--font);
+  border-radius: 99px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.tab-btn i { font-size: 15px; }
+.tab-btn:hover { background: var(--color-bg2); }
+.tab-btn.active { background: var(--color-primary); color: #fff; border-color: transparent; }
+
 /* ─── EMPTY STATE ────────────────────────────── */
 .empty-state { text-align: center; padding: 48px 24px; color: var(--color-text3); background: var(--color-surface); border: 0.5px solid var(--color-border); border-radius: var(--radius); }
 

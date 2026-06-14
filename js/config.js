@@ -108,8 +108,88 @@ const AREAS = {
   geral:                     'Geral',
 };
 
+// ─── TIPOS DE EMPRESA ─────────────────────────
+const TIPOS_EMPRESA = {
+  incorporadora: 'Incorporadora',
+  construtora:   'Construtora',
+  mista:         'Mista (Incorporadora + Construtora)',
+  empreiteira:   'Empreiteira',
+};
+
+const ESPECIALIDADES_EMPREITEIRA = [
+  'Estrutura e fundação',
+  'Alvenaria e vedação',
+  'Elétrica',
+  'Hidráulica',
+  'Pintura',
+  'Impermeabilização',
+  'Esquadrias e vidros',
+  'Revestimentos e acabamentos',
+  'Drywall e forros',
+  'Climatização (HVAC)',
+  'Terraplenagem',
+  'Paisagismo',
+  'Outro',
+];
+
+// ─── TIPOS DE LANÇAMENTO (Indicadores) ────────
+// acumulado: 'soma' = soma cumulativa dos meses | 'media' = média cumulativa
+const LANCAMENTO_TIPOS = {
+  fisico: {
+    label: 'Avanço Físico', icone: 'ti-chart-bar',
+    unidade: '%', acumulado: 'soma', cor: 'var(--color-primary)',
+    descricao: 'Percentual de avanço físico executado no período.'
+  },
+  financeiro: {
+    label: 'Custo Financeiro', icone: 'ti-currency-dollar',
+    unidade: 'R$', acumulado: 'soma', cor: 'var(--color-amber)',
+    descricao: 'Valor financeiro desembolsado no período.'
+  },
+  qualidade: {
+    label: 'Qualidade', icone: 'ti-star',
+    unidade: 'pts (0-5)', acumulado: 'media', cor: 'var(--color-teal)',
+    descricao: 'Índice médio de qualidade dos serviços no período.'
+  },
+  seguranca: {
+    label: 'Segurança', icone: 'ti-shield-check',
+    unidade: 'pts (0-100)', acumulado: 'media', cor: 'var(--color-green)',
+    descricao: 'Índice de segurança no trabalho no período.'
+  },
+};
+
 function podefazer(acao) {
   const p = window._sessao?.perfil;
   if (!p) return false;
   return PERMISSOES[p]?.pode[acao] ?? false;
+}
+
+// Verifica se o usuário pode LANÇAR/EDITAR um tipo específico de indicador
+function podeEditarLancamento(tipo) {
+  const s = window._sessao;
+  if (!s) return false;
+  if (['master_sistema','admin_empresa'].includes(s.perfil)) return true;
+  if (s.perfil === 'visualizador') return false;
+  if (s.perfil === 'gerente') {
+    if (s.area === 'geral') return true;
+    if (s.area === 'engenharia') return ['fisico','qualidade','seguranca'].includes(tipo);
+    if (s.area === 'administrativo_financeiro') return tipo === 'financeiro';
+    return false;
+  }
+  // coordenador / residente — acesso restrito pela RLS às obras vinculadas
+  if (['coordenador','residente'].includes(s.perfil)) return true;
+  return false;
+}
+
+// Verifica se o usuário pode VISUALIZAR um tipo específico de indicador
+function podeVerLancamento(tipo) {
+  const s = window._sessao;
+  if (!s) return false;
+  if (['master_sistema','admin_empresa','visualizador','coordenador','residente'].includes(s.perfil)) return true;
+  if (s.perfil === 'gerente') {
+    if (s.area === 'geral') return true;
+    if (s.area === 'engenharia') return ['fisico','qualidade','seguranca'].includes(tipo);
+    if (s.area === 'administrativo_financeiro') return tipo === 'financeiro';
+    return false;
+  }
+  return true;
 }
