@@ -139,7 +139,10 @@
           <div class="field"><label>Prazo previsto (término)</label><input type="date" id="f-fim"></div>
         </div>
         <div class="field-group">
-          <div class="field"><label>Responsável técnico</label><input type="text" id="f-resp" placeholder="Nome do engenheiro / gerente"></div>
+          <div class="field"><label>Supervisor / Eng. Residente</label>
+            <select id="f-resp"><option value="">Selecionar usuário...</option></select>
+            <span style="font-size:11px;color:var(--color-text3)">Lista usuários com perfil Residente ou Coordenador cadastrados na empresa.</span>
+          </div>
           <div class="field"><label>Tipo de obra</label>
             <select id="f-tipo">
               <option value="">Selecionar...</option>

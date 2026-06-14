@@ -507,6 +507,24 @@ function renderListaObras() {
 function initCadastro() {
   if (!editandoId) limparFormCadastro();
   renderEapForm();
+  popularSelectResponsavel();
+}
+
+// Popula o select de Supervisor/Eng. Residente com usuários residente/coordenador da empresa
+async function popularSelectResponsavel() {
+  const sel = document.getElementById('f-resp');
+  if (!sel) return;
+  const cur = sel.value;
+  const empId = empresa?.id || window._sessao.empresa_id;
+  const { data: users } = await db.from('perfis')
+    .select('user_id, nome, perfil')
+    .eq('empresa_id', empId)
+    .in('perfil', ['residente', 'coordenador'])
+    .eq('ativo', true)
+    .order('nome');
+  sel.innerHTML = '<option value="">Selecionar usuário...</option>' +
+    (users || []).map(u => `<option value="${u.user_id}" data-nome="${u.nome}" data-perfil="${u.perfil}">${u.nome} — ${PERMISSOES[u.perfil]?.label || u.perfil}</option>`).join('');
+  if (cur) sel.value = cur;
 }
 function renderEapForm() {
   const tbody = document.getElementById('eap-tbody');
@@ -528,11 +546,12 @@ function atualizarTotalPeso() {
   el.style.color = Math.abs(total - 100) < 0.1 ? 'var(--color-green)' : total > 100 ? 'var(--color-red)' : 'var(--color-text)';
 }
 function limparFormCadastro() {
-  ['f-nome','f-local','f-valor','f-inicio','f-fim','f-resp','f-desc'].forEach(id => {
+  ['f-nome','f-local','f-valor','f-inicio','f-fim','f-desc'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   const tipo   = document.getElementById('f-tipo');   if (tipo)   tipo.value   = '';
   const status = document.getElementById('f-status'); if (status) status.value = 'execucao';
+  const resp   = document.getElementById('f-resp');   if (resp)   resp.value   = '';
   editandoId = null;
   renderEapForm();
 }
@@ -547,6 +566,12 @@ async function salvarObra() {
   }
   loading(true);
   try {
+    const respSel    = document.getElementById('f-resp');
+    const respOption = respSel?.selectedOptions[0];
+    const respUserId = respSel?.value || null;
+    const respNome   = respOption?.dataset.nome || '';
+    const respPerfil = respOption?.dataset.perfil === 'coordenador' ? 'coordenador' : 'residente';
+
     const obraData = {
       empresa_id:  empresa?.id || window._sessao.empresa_id,
       nome,
@@ -554,7 +579,7 @@ async function salvarObra() {
       valor,
       inicio:      document.getElementById('f-inicio').value || null,
       fim:         document.getElementById('f-fim').value || null,
-      responsavel: document.getElementById('f-resp').value.trim(),
+      responsavel: respNome,
       tipo:        document.getElementById('f-tipo').value,
       status:      document.getElementById('f-status').value || 'execucao',
       descricao:   document.getElementById('f-desc').value.trim(),
@@ -568,6 +593,14 @@ async function salvarObra() {
       if (error) throw error;
       obraId = data.id;
     }
+
+    // Vincular o usuário selecionado como Residente/Coordenador da obra
+    if (respUserId) {
+      await db.from('obras_usuarios').upsert({
+        obra_id: obraId, user_id: respUserId, perfil: respPerfil,
+      }, { onConflict: 'obra_id,user_id' });
+    }
+
     const eapItens = EAP_PADRAO.map((e, i) => ({
       obra_id:   obraId,
       codigo:    e.codigo,
@@ -594,16 +627,23 @@ async function editarObra(id) {
   if (!o) return;
   editandoId = id;
   navegar('cadastro');
+  await popularSelectResponsavel();
+  const { data: ous } = await db.from('obras_usuarios')
+    .select('user_id, perfil')
+    .eq('obra_id', id)
+    .in('perfil', ['residente', 'coordenador'])
+    .limit(1);
   setTimeout(() => {
     document.getElementById('f-nome').value    = o.nome || '';
     document.getElementById('f-local').value   = o.local || '';
     document.getElementById('f-valor').value   = o.valor || '';
     document.getElementById('f-inicio').value  = o.inicio || '';
     document.getElementById('f-fim').value     = o.fim || '';
-    document.getElementById('f-resp').value    = o.responsavel || '';
     document.getElementById('f-tipo').value    = o.tipo || '';
     document.getElementById('f-desc').value    = o.descricao || '';
     const stEl = document.getElementById('f-status'); if (stEl) stEl.value = o.status || 'execucao';
+    const respSel = document.getElementById('f-resp');
+    if (respSel && ous?.[0]) respSel.value = ous[0].user_id;
     (o.eap || []).forEach(e => {
       const pi  = document.querySelector(`.peso-input[data-cod="${e.codigo}"]`);   if (pi)  pi.value  = e.peso || '';
       const oi  = document.querySelector(`.orcado-input[data-cod="${e.codigo}"]`); if (oi)  oi.value  = e.orcado || '';
