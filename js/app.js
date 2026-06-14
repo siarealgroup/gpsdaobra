@@ -511,11 +511,16 @@ function initCadastro() {
 }
 
 // Popula o select de Supervisor/Eng. Residente com usuários residente/coordenador da empresa
-async function popularSelectResponsavel() {
+async function popularSelectResponsavel(empresaIdOverride) {
   const sel = document.getElementById('f-resp');
   if (!sel) return;
   const cur = sel.value;
-  const empId = empresa?.id || window._sessao.empresa_id;
+  let empId = empresaIdOverride;
+  if (!empId && editandoId) {
+    const o = obras.find(ob => ob.id === editandoId);
+    empId = o?.empresa_id;
+  }
+  if (!empId) empId = empresa?.id || window._sessao.empresa_id;
   const { data: users } = await db.from('perfis')
     .select('user_id, nome, perfil')
     .eq('empresa_id', empId)
@@ -627,7 +632,7 @@ async function editarObra(id) {
   if (!o) return;
   editandoId = id;
   navegar('cadastro');
-  await popularSelectResponsavel();
+  await popularSelectResponsavel(o.empresa_id);
   const { data: ous } = await db.from('obras_usuarios')
     .select('user_id, perfil')
     .eq('obra_id', id)
