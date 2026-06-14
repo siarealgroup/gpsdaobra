@@ -70,6 +70,17 @@ function mostrarRecuperacao() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-wrapper').style.display = 'none';
   document.getElementById('recovery-screen').style.display = 'flex';
+  window._trocaObrigatoria = false;
+}
+
+// Primeiro acesso: usuário precisa definir uma senha definitiva antes de entrar
+function mostrarTrocaSenhaObrigatoria() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-wrapper').style.display = 'none';
+  document.getElementById('recovery-screen').style.display = 'flex';
+  document.querySelector('#recovery-screen .auth-logo-title').textContent = '🔑 Defina sua senha';
+  document.querySelector('#recovery-screen .auth-logo-sub').textContent = 'Este é seu primeiro acesso — defina uma senha definitiva para continuar.';
+  window._trocaObrigatoria = true;
 }
 
 async function fazerLogin() {
@@ -109,7 +120,7 @@ async function solicitarResetSenha() {
   }
 }
 
-// Salvar nova senha (após clicar no link de recuperação do e-mail)
+// Salvar nova senha (após clicar no link de recuperação do e-mail, ou no 1º acesso)
 async function salvarNovaSenha() {
   const senha  = document.getElementById('rec-senha').value;
   const senha2 = document.getElementById('rec-senha2').value;
@@ -122,11 +133,26 @@ async function salvarNovaSenha() {
   btn.disabled = true;
   btn.textContent = 'Salvando...';
   const { error } = await db.auth.updateUser({ password: senha });
-  btn.disabled = false;
-  btn.textContent = 'Salvar nova senha';
   if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Salvar nova senha';
     errEl.textContent = 'Erro: ' + error.message;
+    return;
+  }
+
+  if (window._trocaObrigatoria) {
+    // Primeiro acesso: limpar a flag e seguir direto para o app
+    await db.from('perfis').update({ precisa_trocar_senha: false }).eq('user_id', window._sessao.user.id);
+    window._trocaObrigatoria = false;
+    document.getElementById('rec-senha').value = '';
+    document.getElementById('rec-senha2').value = '';
+    btn.disabled = false;
+    btn.textContent = 'Salvar nova senha';
+    toast('Senha definida com sucesso!');
+    await carregarSessao(window._sessao.user);
   } else {
+    btn.disabled = false;
+    btn.textContent = 'Salvar nova senha';
     errEl.style.color = 'var(--color-green-text)';
     errEl.textContent = 'Senha atualizada! Redirecionando...';
     setTimeout(() => { window.location.href = window.location.origin; }, 1500);
@@ -163,6 +189,11 @@ async function carregarSessao(user) {
     return;
   }
   window._sessao = { ...p, user };
+  if (p.precisa_trocar_senha) {
+    loading(false);
+    mostrarTrocaSenhaObrigatoria();
+    return;
+  }
   renderSidebarUsuario();
   await carregarTudo();
   renderMenuPerfil();
@@ -233,11 +264,58 @@ function renderSidebarUsuario() {
   if (!el) return;
   const pConf = PERMISSOES[s.perfil];
   el.innerHTML = `
-    <div class="sidebar-user-info">
+    <div class="sidebar-user-info" style="cursor:pointer" onclick="abrirMeuPerfil()" title="Meu perfil">
       <div class="sidebar-user-name">${s.nome}</div>
       <span class="badge ${pConf?.badge || 'badge-gray'}" style="font-size:10px">${pConf?.label || s.perfil}</span>
     </div>
     <button class="btn-logout" onclick="fazerLogout()" title="Sair"><i class="ti ti-logout"></i></button>`;
+}
+
+// ─── MEU PERFIL ───────────────────────────────
+function abrirMeuPerfil() {
+  const s = window._sessao;
+  const pConf = PERMISSOES[s.perfil];
+  const info = document.getElementById('meu-perfil-info');
+  info.innerHTML = `
+    <div class="field-group">
+      <div class="field"><label>Nome</label><div style="padding:8px 0;font-size:14px">${s.nome}</div></div>
+      <div class="field"><label>E-mail</label><div style="padding:8px 0;font-size:14px">${s.email}</div></div>
+    </div>
+    <div class="field-group">
+      <div class="field"><label>Perfil</label><div style="padding:8px 0"><span class="badge ${pConf?.badge || 'badge-gray'}">${pConf?.label || s.perfil}</span></div></div>
+      <div class="field"><label>Área</label><div style="padding:8px 0;font-size:14px">${AREAS[s.area] || '—'}</div></div>
+    </div>
+    <div class="field-group">
+      <div class="field"><label>Empresa</label><div style="padding:8px 0;font-size:14px">${empresa?.nome || '—'}</div></div>
+      <div class="field"><label>CPF</label><div style="padding:8px 0;font-size:14px">${s.cpf || '—'}</div></div>
+    </div>`;
+  document.getElementById('mp-senha').value = '';
+  document.getElementById('mp-senha2').value = '';
+  document.getElementById('mp-erro').textContent = '';
+  document.getElementById('modal-meu-perfil').style.display = 'block';
+}
+function fecharMeuPerfil() {
+  document.getElementById('modal-meu-perfil').style.display = 'none';
+}
+async function salvarMinhaSenha() {
+  const senha  = document.getElementById('mp-senha').value;
+  const senha2 = document.getElementById('mp-senha2').value;
+  const errEl  = document.getElementById('mp-erro');
+  errEl.style.color = 'var(--color-red)';
+  errEl.textContent = '';
+  if (!senha || senha.length < 6) { errEl.textContent = 'A senha deve ter pelo menos 6 caracteres.'; return; }
+  if (senha !== senha2) { errEl.textContent = 'As senhas não coincidem.'; return; }
+  loading(true);
+  const { error } = await db.auth.updateUser({ password: senha });
+  loading(false);
+  if (error) {
+    errEl.textContent = 'Erro: ' + error.message;
+  } else {
+    errEl.style.color = 'var(--color-green-text)';
+    errEl.textContent = 'Senha atualizada com sucesso!';
+    document.getElementById('mp-senha').value = '';
+    document.getElementById('mp-senha2').value = '';
+  }
 }
 
 function renderMenuPerfil() {
@@ -602,8 +680,12 @@ async function popularSelectResponsavel(empresaIdOverride) {
     .in('perfil', ['residente', 'coordenador'])
     .eq('ativo', true)
     .order('nome');
+  if (!users || !users.length) {
+    sel.innerHTML = '<option value="">— Nenhum Residente/Coordenador cadastrado nesta empresa —</option>';
+    return;
+  }
   sel.innerHTML = '<option value="">Selecionar usuário...</option>' +
-    (users || []).map(u => `<option value="${u.user_id}" data-nome="${u.nome}" data-perfil="${u.perfil}">${u.nome} — ${PERMISSOES[u.perfil]?.label || u.perfil}</option>`).join('');
+    users.map(u => `<option value="${u.user_id}" data-nome="${u.nome}" data-perfil="${u.perfil}">${u.nome} — ${PERMISSOES[u.perfil]?.label || u.perfil}</option>`).join('');
   if (cur) sel.value = cur;
 }
 function renderEapForm() {
@@ -1264,6 +1346,11 @@ function renderTabelaUsuarios(usuarios, podeCriar, hojeMes, hojeDia) {
                   <i class="ti ti-key"></i>
                 </button>`
               : ''}
+            ${podeCriar
+              ? `<button class="btn-icon" onclick="forcarTrocaSenha('${u.id}','${u.nome.replace(/'/g, "\\'")}')" title="Forçar troca de senha no próximo login">
+                  <i class="ti ti-shield-lock"></i>
+                </button>`
+              : ''}
             ${podeCriar && u.user_id !== window._sessao?.user_id
               ? `<button class="btn-icon btn-icon-red" onclick="desativarUsuario('${u.id}','${u.nome}','${u.ativo}')" title="${u.ativo ? 'Desativar' : 'Ativar'}">
                   <i class="ti ti-${u.ativo ? 'user-x' : 'user-check'}"></i>
@@ -1337,6 +1424,7 @@ async function criarUsuario() {
       perfil: pf,
       area,
       ativo: true,
+      precisa_trocar_senha: true,
     });
     if (perfErr) throw perfErr;
 
@@ -1431,6 +1519,20 @@ async function resetarSenhaUsuario(email, nome) {
     });
     if (error) throw error;
     toast(`E-mail de redefinição enviado para ${email}.`);
+  } catch (e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  loading(false);
+}
+
+// Forçar troca de senha no próximo login (sem precisar de e-mail)
+async function forcarTrocaSenha(id, nome) {
+  if (!confirm(`Na próxima vez que "${nome}" entrar com a senha atual, ele será obrigado a definir uma nova senha. Continuar?`)) return;
+  loading(true);
+  try {
+    const { error } = await db.from('perfis').update({ precisa_trocar_senha: true }).eq('id', id);
+    if (error) throw error;
+    toast(`"${nome}" precisará trocar a senha no próximo login.`);
   } catch (e) {
     toast('Erro: ' + e.message, 'error');
   }

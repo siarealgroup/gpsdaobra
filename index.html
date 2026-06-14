@@ -341,6 +341,28 @@
   </main>
 </div>
 
+<!-- Modal Meu Perfil -->
+<div id="modal-meu-perfil" style="display:none">
+  <div class="modal-backdrop" onclick="fecharMeuPerfil()"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Meu perfil</span>
+      <button class="btn-icon" onclick="fecharMeuPerfil()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="meu-perfil-info"></div>
+    <div style="border-top:0.5px solid var(--color-border2);margin:16px 0"></div>
+    <div class="sec-title" style="margin-bottom:10px"><i class="ti ti-lock"></i>Alterar minha senha</div>
+    <div class="field-group">
+      <div class="field"><label>Nova senha</label><input type="password" id="mp-senha" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field"><label>Confirmar nova senha</label><input type="password" id="mp-senha2" placeholder="Repita a senha"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="salvarMinhaSenha()"><i class="ti ti-check"></i> Salvar nova senha</button>
+    </div>
+    <div id="mp-erro" style="color:var(--color-red);font-size:12px;margin-top:8px"></div>
+  </div>
+</div>
+
 <!-- Supabase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
