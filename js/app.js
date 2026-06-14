@@ -564,7 +564,23 @@ function renderListaObras() {
 function initCadastro() {
   if (!editandoId) limparFormCadastro();
   renderEapForm();
+  popularSelectEmpresaCadastro();
   popularSelectResponsavel();
+}
+
+// Para usuários da empresa gestora (SIA Real Tec) / master: mostrar select de empresa
+async function popularSelectEmpresaCadastro() {
+  const field = document.getElementById('f-empresa-field');
+  const sel   = document.getElementById('f-empresa');
+  if (!field || !sel) return;
+  if (!souGestora()) { field.style.display = 'none'; return; }
+  field.style.display = 'block';
+  const cur = sel.value;
+  const { data: emps } = await db.from('empresas')
+    .select('id,nome,gestora').eq('ativa', true).order('nome');
+  sel.innerHTML = '<option value="">Selecionar empresa...</option>' +
+    (emps || []).filter(e => !e.gestora).map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
+  if (cur) sel.value = cur;
 }
 
 // Popula o select de Supervisor/Eng. Residente com usuários residente/coordenador da empresa
@@ -577,7 +593,9 @@ async function popularSelectResponsavel(empresaIdOverride) {
     const o = obras.find(ob => ob.id === editandoId);
     empId = o?.empresa_id;
   }
+  if (!empId && souGestora()) empId = document.getElementById('f-empresa')?.value;
   if (!empId) empId = empresa?.id || window._sessao.empresa_id;
+  if (!empId) { sel.innerHTML = '<option value="">Selecione a empresa primeiro...</option>'; return; }
   const { data: users } = await db.from('perfis')
     .select('user_id, nome, perfil')
     .eq('empresa_id', empId)
@@ -614,6 +632,7 @@ function limparFormCadastro() {
   const tipo   = document.getElementById('f-tipo');   if (tipo)   tipo.value   = '';
   const status = document.getElementById('f-status'); if (status) status.value = 'execucao';
   const resp   = document.getElementById('f-resp');   if (resp)   resp.value   = '';
+  const emp    = document.getElementById('f-empresa');if (emp)    emp.value    = '';
   editandoId = null;
   renderEapForm();
 }
@@ -621,6 +640,10 @@ async function salvarObra() {
   const nome  = document.getElementById('f-nome').value.trim();
   const valor = parseFloat(document.getElementById('f-valor').value) || 0;
   if (!nome) { toast('Informe o nome da obra.', 'error'); return; }
+  const empresaSel = document.getElementById('f-empresa');
+  if (souGestora() && empresaSel && !empresaSel.value) {
+    toast('Selecione a empresa do empreendimento.', 'error'); return;
+  }
   let totalPeso = 0;
   document.querySelectorAll('.peso-input').forEach(i => { totalPeso += parseFloat(i.value) || 0; });
   if (Math.abs(totalPeso - 100) > 1) {
@@ -633,9 +656,10 @@ async function salvarObra() {
     const respUserId = respSel?.value || null;
     const respNome   = respOption?.dataset.nome || '';
     const respPerfil = respOption?.dataset.perfil === 'coordenador' ? 'coordenador' : 'residente';
+    const empresaIdObra = (souGestora() && empresaSel?.value) ? empresaSel.value : (empresa?.id || window._sessao.empresa_id);
 
     const obraData = {
-      empresa_id:  empresa?.id || window._sessao.empresa_id,
+      empresa_id:  empresaIdObra,
       nome,
       local:       document.getElementById('f-local').value.trim(),
       valor,
@@ -689,6 +713,9 @@ async function editarObra(id) {
   if (!o) return;
   editandoId = id;
   navegar('cadastro');
+  await popularSelectEmpresaCadastro();
+  const empSel = document.getElementById('f-empresa');
+  if (empSel) empSel.value = o.empresa_id || '';
   await popularSelectResponsavel(o.empresa_id);
   const { data: ous } = await db.from('obras_usuarios')
     .select('user_id, perfil')
@@ -1137,6 +1164,60 @@ async function renderUsuarios() {
         </div>
         <div id="inv-erro" style="color:var(--color-red);font-size:12px;margin-top:8px"></div>
       </div>
+    </div>
+
+    <!-- Modal editar usuário -->
+    <div id="modal-editar-usuario" style="display:none">
+      <div class="modal-backdrop" onclick="fecharModalEditarUsuario()"></div>
+      <div class="modal-box">
+        <div class="modal-header">
+          <span class="modal-title">Editar usuário</span>
+          <button class="btn-icon" onclick="fecharModalEditarUsuario()"><i class="ti ti-x"></i></button>
+        </div>
+        <input type="hidden" id="edit-id">
+        <div class="field-group">
+          <div class="field"><label>Nome completo *</label><input type="text" id="edit-nome"></div>
+          <div class="field"><label>E-mail</label><input type="email" id="edit-email" disabled></div>
+        </div>
+        <div class="field-group">
+          <div class="field"><label>CPF</label><input type="text" id="edit-cpf" placeholder="000.000.000-00" maxlength="14"></div>
+          <div class="field"><label>Status</label>
+            <select id="edit-ativo">
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field"><label>Data de nascimento</label><input type="date" id="edit-nascimento"></div>
+          <div class="field"><label>Data de admissão</label><input type="date" id="edit-admissao"></div>
+        </div>
+        <div class="field-group">
+          <div class="field"><label>Perfil *</label>
+            <select id="edit-perfil">
+              ${Object.entries(PERMISSOES)
+                .filter(([k]) => k !== 'master_sistema')
+                .map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Área</label>
+            <select id="edit-area">
+              ${Object.entries(AREAS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        ${souGestora() ? `
+        <div class="field"><label>Empresa</label>
+          <select id="edit-empresa">
+            ${(window._todasEmpresasForm || []).map(e => `<option value="${e.id}">${e.nome}${e.gestora ? ' (Gestora)' : ''}</option>`).join('')}
+          </select>
+        </div>` : ''}
+        <div class="btn-row" style="margin-top:16px">
+          <button onclick="fecharModalEditarUsuario()">Cancelar</button>
+          <button class="btn-primary" onclick="salvarEdicaoUsuario()"><i class="ti ti-check"></i> Salvar alterações</button>
+        </div>
+        <div id="edit-erro" style="color:var(--color-red);font-size:12px;margin-top:8px"></div>
+      </div>
     </div>`;
 }
 
@@ -1173,6 +1254,11 @@ function renderTabelaUsuarios(usuarios, podeCriar, hojeMes, hojeDia) {
           <td style="font-size:12px">${tempo}</td>
           <td><span class="badge ${u.ativo ? 'badge-green' : 'badge-red'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
           <td>
+            ${podeCriar
+              ? `<button class="btn-icon" onclick="abrirModalEditarUsuario('${u.id}')" title="Editar usuário">
+                  <i class="ti ti-edit"></i>
+                </button>`
+              : ''}
             ${podeCriar
               ? `<button class="btn-icon" onclick="resetarSenhaUsuario('${u.email}','${u.nome.replace(/'/g, "\\'")}')" title="Enviar e-mail de redefinição de senha">
                   <i class="ti ti-key"></i>
@@ -1265,6 +1351,64 @@ async function criarUsuario() {
     await renderUsuarios();
   } catch(e) {
     errEl.textContent = e.message;
+  }
+  loading(false);
+}
+
+// ─── EDITAR USUÁRIO ────────────────────────────
+async function abrirModalEditarUsuario(perfilId) {
+  loading(true);
+  const { data: u, error } = await db.from('perfis').select('*').eq('id', perfilId).single();
+  loading(false);
+  if (error || !u) { toast('Erro ao carregar usuário.', 'error'); return; }
+
+  document.getElementById('edit-id').value          = u.id;
+  document.getElementById('edit-nome').value        = u.nome || '';
+  document.getElementById('edit-email').value       = u.email || '';
+  document.getElementById('edit-cpf').value         = u.cpf || '';
+  document.getElementById('edit-ativo').value       = String(u.ativo);
+  document.getElementById('edit-nascimento').value  = u.data_nascimento || '';
+  document.getElementById('edit-admissao').value    = u.data_admissao || '';
+  document.getElementById('edit-perfil').value      = u.perfil || 'visualizador';
+  document.getElementById('edit-area').value        = u.area || 'geral';
+  const empSel = document.getElementById('edit-empresa');
+  if (empSel) empSel.value = u.empresa_id || '';
+  document.getElementById('edit-erro').textContent = '';
+  document.getElementById('modal-editar-usuario').style.display = 'block';
+}
+
+function fecharModalEditarUsuario() {
+  document.getElementById('modal-editar-usuario').style.display = 'none';
+}
+
+async function salvarEdicaoUsuario() {
+  const id   = document.getElementById('edit-id').value;
+  const nome = document.getElementById('edit-nome').value.trim();
+  const errEl = document.getElementById('edit-erro');
+  errEl.textContent = '';
+  if (!nome) { errEl.textContent = 'Nome é obrigatório.'; return; }
+
+  const dados = {
+    nome,
+    cpf:              document.getElementById('edit-cpf').value.trim() || null,
+    ativo:            document.getElementById('edit-ativo').value === 'true',
+    data_nascimento:  document.getElementById('edit-nascimento').value || null,
+    data_admissao:    document.getElementById('edit-admissao').value || null,
+    perfil:           document.getElementById('edit-perfil').value,
+    area:             document.getElementById('edit-area').value,
+  };
+  const empSel = document.getElementById('edit-empresa');
+  if (empSel) dados.empresa_id = empSel.value;
+
+  loading(true);
+  try {
+    const { error } = await db.from('perfis').update(dados).eq('id', id);
+    if (error) throw error;
+    toast('Usuário atualizado!');
+    fecharModalEditarUsuario();
+    await renderUsuarios();
+  } catch (e) {
+    errEl.textContent = 'Erro: ' + e.message;
   }
   loading(false);
 }

@@ -152,6 +152,13 @@
 
       <div class="card">
         <div class="sec-title"><i class="ti ti-building"></i>Dados do empreendimento</div>
+        <div class="field" id="f-empresa-field" style="display:none">
+          <label>Empresa *</label>
+          <select id="f-empresa" onchange="popularSelectResponsavel(this.value)">
+            <option value="">Selecionar empresa...</option>
+          </select>
+          <span style="font-size:11px;color:var(--color-text3)">A obra será cadastrada dentro desta empresa.</span>
+        </div>
         <div class="field-group">
           <div class="field"><label>Nome do empreendimento *</label><input type="text" id="f-nome" placeholder="Ex: Residencial Aurora"></div>
           <div class="field"><label>Localidade / UF</label><input type="text" id="f-local" placeholder="Ex: São Paulo · SP"></div>
