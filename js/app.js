@@ -62,6 +62,7 @@ function mostrarLogin() {
   document.getElementById('auth-screen').style.display = 'flex';
 }
 function mostrarApp() {
+  if (window._recoveryMode) { mostrarRecuperacao(); return; }
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('recovery-screen').style.display = 'none';
   document.getElementById('app-wrapper').style.display = 'flex';
@@ -166,8 +167,14 @@ async function fazerLogout() {
 }
 
 // ─── INICIALIZAÇÃO AUTH ───────────────────────
+// Detecta IMEDIATAMENTE se a URL é de um link de recuperação de senha
+// (evita a corrida entre os eventos SIGNED_IN e PASSWORD_RECOVERY)
+window._recoveryMode = window.location.hash.includes('type=recovery');
+
 db.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'PASSWORD_RECOVERY') {
+  if (window._recoveryMode || event === 'PASSWORD_RECOVERY') {
+    window._recoveryMode = true;
+    if (session?.user) window._sessao = { user: session.user };
     mostrarRecuperacao();
     return;
   }
