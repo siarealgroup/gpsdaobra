@@ -336,7 +336,7 @@ function renderMenuPerfil() {
     'nav-segqual':     pode('lancarQualidade'),
     'nav-lancamentos': true,
     'nav-usuarios':    pode('gerenciarUsuarios'),
-    'nav-empresas':    p === 'master_sistema' || window._sessao?.empresa?.gestora,
+    'nav-empresas':    souGestora(),
   };
   Object.entries(itens).forEach(([id, visivel]) => {
     const el = document.getElementById(id);
@@ -1283,11 +1283,7 @@ async function renderUsuarios() {
         </div>
         <div class="field-group">
           <div class="field"><label>Perfil *</label>
-            <select id="edit-perfil">
-              ${Object.entries(PERMISSOES)
-                .filter(([k]) => k !== 'master_sistema')
-                .map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('')}
-            </select>
+            <select id="edit-perfil"></select>
           </div>
           <div class="field"><label>Área</label>
             <select id="edit-area">
@@ -1464,7 +1460,15 @@ async function abrirModalEditarUsuario(perfilId) {
   document.getElementById('edit-ativo').value       = String(u.ativo);
   document.getElementById('edit-nascimento').value  = u.data_nascimento || '';
   document.getElementById('edit-admissao').value    = u.data_admissao || '';
-  document.getElementById('edit-perfil').value      = u.perfil || 'visualizador';
+
+  // Monta as opções de perfil. "Master do Sistema" só aparece se o usuário
+  // editado já tiver esse perfil — evita rebaixamento acidental, e este
+  // modal não permite PROMOVER alguém a Master (isso é feito via SQL).
+  const perfilSel = document.getElementById('edit-perfil');
+  const opcoesPerfil = Object.entries(PERMISSOES).filter(([k]) => k !== 'master_sistema' || u.perfil === 'master_sistema');
+  perfilSel.innerHTML = opcoesPerfil.map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
+  perfilSel.value = u.perfil || 'visualizador';
+
   document.getElementById('edit-area').value        = u.area || 'geral';
   const empSel = document.getElementById('edit-empresa');
   if (empSel) empSel.value = u.empresa_id || '';
